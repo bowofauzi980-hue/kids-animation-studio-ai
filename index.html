@@ -86,6 +86,34 @@ footer{text-align:center;padding:25px;color:#9aabc2}
 </button>
 </div>
 
+
+<div class="panel" id="apiKeyManager">
+<h2>🔐 API KEY MANAGER</h2>
+<p>Hubungkan provider AI menggunakan API Key milikmu sendiri.</p>
+
+<label for="providerAI">Pilih Provider AI</label>
+<select id="providerAI">
+<option value="gemini">Google Gemini</option>
+<option value="openai">OpenAI</option>
+<option value="groq">Groq</option>
+<option value="openrouter">OpenRouter</option>
+<option value="mistral">Mistral AI</option>
+</select>
+
+<label for="apiKeyInput">API Key</label>
+<input id="apiKeyInput" type="password"
+placeholder="Tempel API Key di sini"
+autocomplete="off">
+
+<button onclick="simpanApiKey()">💾 SIMPAN API KEY</button>
+<button class="secondary" onclick="hapusApiKey()">HAPUS API KEY PROVIDER INI</button>
+
+<p id="statusApiKey">Belum ada pemeriksaan API Key.</p>
+
+<h3>Provider Tersimpan</h3>
+<div id="daftarApiKey" class="hasil">Memuat daftar...</div>
+</div>
+
 </div>
 
 <footer>
@@ -273,5 +301,57 @@ function downloadStoryboard(){
  URL.revokeObjectURL(url);
 }
 </script>
+
+async function simpanApiKey(){
+ const provider = document.getElementById("providerAI").value;
+ const apiKey = document.getElementById("apiKeyInput").value.trim();
+ const status = document.getElementById("statusApiKey");
+
+ try{
+  if(!apiKey) throw new Error("Masukkan API Key terlebih dahulu.");
+  status.textContent = "Menyimpan API Key...";
+  await KeyManager.simpan(provider, apiKey);
+  document.getElementById("apiKeyInput").value = "";
+  status.textContent = "API Key berhasil disimpan di browser.";
+  await tampilkanDaftarApiKey();
+ }catch(error){
+  status.textContent = "Gagal: " + error.message;
+ }
+}
+
+async function hapusApiKey(){
+ const provider = document.getElementById("providerAI").value;
+ const status = document.getElementById("statusApiKey");
+
+ try{
+  await KeyManager.hapus(provider);
+  status.textContent = "API Key provider berhasil dihapus.";
+  await tampilkanDaftarApiKey();
+ }catch(error){
+  status.textContent = "Gagal: " + error.message;
+ }
+}
+
+async function tampilkanDaftarApiKey(){
+ const area = document.getElementById("daftarApiKey");
+
+ try{
+  const daftar = await KeyManager.daftar();
+
+  if(!daftar.length){
+   area.textContent = "Belum ada provider tersimpan.";
+   return;
+  }
+
+  area.textContent = daftar.map(item =>
+   item.provider.toUpperCase() + " — tersimpan"
+  ).join("\\n");
+ }catch(error){
+  area.textContent = "Gagal membaca penyimpanan: " + error.message;
+ }
+}
+
+document.addEventListener("DOMContentLoaded", tampilkanDaftarApiKey);
+\n<script src="assets/js/key-manager.js"></script>
 </body>
 </html>
