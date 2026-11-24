@@ -6,22 +6,22 @@
 <title>Kids Animation Studio AI</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;font-family:Arial;background:#101827;color:white}
+body{margin:0;font-family:Arial,sans-serif;background:#101827;color:white}
 header{padding:22px;background:#17243a;border-bottom:2px solid #263b58}
-header h1{color:#ffd34e;font-size:23px}
-header p{color:#aebbd0}
-.container{max-width:1100px;margin:auto;padding:20px}
-.panel{background:#1b2b43;border:1px solid #30435d;border-radius:14px;padding:20px;margin-bottom:20px}
+header h1{color:#ffd34e;font-size:23px;margin:0 0 8px}
+header p{color:#aebbd0;margin:0}
+.container{max-width:1000px;margin:auto;padding:16px}
+.panel{background:#1b2b43;border:1px solid #30435d;border-radius:14px;padding:18px;margin-bottom:18px}
 h2{color:#ffd34e;font-size:19px}
 label{display:block;margin:14px 0 7px}
 input,select,textarea{width:100%;padding:12px;border-radius:8px;border:1px solid #405572;background:#101c2d;color:white;font-size:15px}
 textarea{min-height:75px}
-button{padding:13px 18px;border:0;border-radius:8px;background:#20c982;color:#071b16;font-weight:bold;cursor:pointer;margin-top:16px}
+button{padding:13px 18px;border:0;border-radius:8px;background:#20c982;color:#071b16;font-weight:bold;cursor:pointer;margin-top:16px;width:100%}
+button:disabled{opacity:.5}
 .secondary{background:#ffd34e}
-.scene{padding:13px;background:#263b55;border-radius:9px;margin:12px 0}
-.scene h3{color:#ffd34e}
+#status{color:#aeeacb;white-space:pre-wrap}
+#hasil{white-space:pre-wrap;line-height:1.7;overflow-wrap:anywhere}
 footer{text-align:center;padding:25px;color:#9aabc2}
-@media(min-width:750px){.columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}}
 </style>
 </head>
 <body>
@@ -35,10 +35,10 @@ footer{text-align:center;padding:25px;color:#9aabc2}
 <h2>📋 Informasi Episode</h2>
 
 <label>Judul Episode</label>
-<input id="judul" placeholder="Bimo Belajar Mengenal Warna">
+<input id="judul" placeholder="Bimo dan Pelangi Ajaib">
 
 <label>Tema Cerita</label>
-<input id="tema" placeholder="Belajar warna bersama teman">
+<input id="tema" placeholder="Belajar mengenal warna bersama teman">
 
 <label>Durasi Video</label>
 <select id="durasi">
@@ -54,18 +54,19 @@ footer{text-align:center;padding:25px;color:#9aabc2}
 </select>
 
 <label>Karakter</label>
-<input id="karakter" value="Bimo, Lala, Bubu, Milo">
+<input id="karakter" value="Bimo, Lala, Bubu">
 
 <label>Tujuan Edukasi</label>
-<textarea id="tujuan" placeholder="Apa yang ingin dipelajari anak-anak?"></textarea>
+<textarea id="tujuan" placeholder="Contoh: mengenal warna, belajar berbagi, dan bekerja sama"></textarea>
 
-<button onclick="buatStoryboard()">✨ BUAT STORYBOARD</button>
+<button id="tombolBuat" onclick="buatCerita()">✨ GENERATE CERITA DENGAN GEMINI AI</button>
 </div>
 
 <div class="panel">
-<h2>🎞️ Hasil Storyboard</h2>
-<p id="status">Belum ada storyboard.</p>
+<h2>🎞️ Hasil Cerita AI</h2>
+<p id="status">Backend siap digunakan. Isi informasi episode lalu tekan Generate.</p>
 <div id="hasil"></div>
+
 <button class="secondary" onclick="setujui()">✓ SETUJUI KONSEP</button>
 <button onclick="downloadJSON()">⬇ DOWNLOAD PROYEK JSON</button>
 </div>
@@ -73,96 +74,115 @@ footer{text-align:center;padding:25px;color:#9aabc2}
 
 <footer>
 KIDS ANIMATION STUDIO AI<br>
-Tahap 1 — Storyboard dan Perencanaan Produksi
+Tahap 1 — AI Story dan Perencanaan Produksi
 </footer>
 
 <script>
-let proyek=null;
+// GANTI URL DI BAWAH INI DENGAN URL WEB APP /exec MILIKMU
+const BACKEND_URL = "https://script.google.com/macros/library/d/1fjO083TjXUKXVTZ36gqLGpW9Ps6PPt_YAtZzfiyHb_1j1PBFIzm8wa2O/2";
 
-function buatStoryboard(){
-const judul=document.getElementById("judul").value.trim();
-const tema=document.getElementById("tema").value.trim();
-const durasi=Number(document.getElementById("durasi").value);
-const bahasa=document.getElementById("bahasa").value;
-const karakter=document.getElementById("karakter").value.split(",").map(x=>x.trim()).filter(Boolean);
-const tujuan=document.getElementById("tujuan").value.trim();
+let proyek = null;
+let sedangMemuat = false;
 
-if(!judul||!tema){alert("Judul dan tema wajib diisi.");return;}
+function buatCerita(){
+ if(sedangMemuat)return;
 
-const rancangan=[
-["Pembukaan",0.10,"Perkenalkan karakter dan tempat cerita."],
-["Rasa ingin tahu",0.12,"Karakter menemukan sesuatu yang menarik."],
-["Eksplorasi",0.15,"Karakter mulai belajar tentang tema."],
-["Belajar bersama",0.16,"Semua karakter saling membantu."],
-["Lagu anak",0.20,"Masukkan lagu ceria dengan lirik berulang."],
-["Permainan",0.17,"Ajak penonton ikut bermain dan belajar."],
-["Penutup",0.10,"Ulangi pelajaran dan tutup cerita."]
-];
+ const judul=document.getElementById("judul").value.trim();
+ const tema=document.getElementById("tema").value.trim();
+ const durasi=document.getElementById("durasi").value;
+ const bahasa=document.getElementById("bahasa").value;
+ const karakter=document.getElementById("karakter").value.trim();
+ const tujuan=document.getElementById("tujuan").value.trim();
 
-const total=durasi*60;
-let waktu=0;
-const scenes=[];
+ if(!judul || !tema){
+  alert("Judul dan tema wajib diisi.");
+  return;
+ }
 
-rancangan.forEach((item,index)=>{
-const panjang=Math.round(total*item[1]);
-const akhir=index===rancangan.length-1?total:waktu+panjang;
-scenes.push({
-nomor:index+1,
-nama:item[0],
-mulai_detik:waktu,
-selesai_detik:akhir,
-deskripsi:item[2]+" Tema: "+tema,
-karakter:karakter
-});
-waktu=akhir;
-});
+ if(BACKEND_URL==="TEMPEL_URL_WEB_APP_EXEC_DI_SINI"){
+  alert("URL backend belum dipasang.");
+  return;
+ }
 
-proyek={
-judul,tema,durasi_menit:durasi,bahasa,karakter,
-tujuan_edukasi:tujuan,
-tanggal:new Date().toISOString(),
-status:"Menunggu persetujuan",
-adegan:scenes
-};
+ sedangMemuat=true;
+ const tombol=document.getElementById("tombolBuat");
+ tombol.disabled=true;
+ tombol.textContent="⏳ GEMINI SEDANG MEMBUAT CERITA...";
+ document.getElementById("status").textContent="Menghubungi Gemini AI. Mohon tunggu...";
+ document.getElementById("hasil").textContent="";
 
-tampilkan();
-document.getElementById("status").textContent="Storyboard berhasil dibuat. Periksa setiap adegan.";
+ const params=new URLSearchParams({
+  action:"generate",
+  judul:judul,
+  tema:tema,
+  durasi:durasi,
+  bahasa:bahasa,
+  karakter:karakter,
+  tujuan:tujuan,
+  callback:"kidsAnimationCallback"
+ });
+
+ window.kidsAnimationCallback=function(response){
+  selesai();
+  if(!response || !response.success){
+   document.getElementById("status").textContent="Gagal: "+(response && response.message ? response.message : "Respons backend tidak valid.");
+   return;
+  }
+
+  proyek={
+   judul:judul,
+   tema:tema,
+   durasi_menit:Number(durasi),
+   bahasa:bahasa,
+   karakter:karakter.split(",").map(x=>x.trim()).filter(Boolean),
+   tujuan_edukasi:tujuan,
+   tanggal:new Date().toISOString(),
+   status:"Menunggu persetujuan",
+   cerita:response.cerita
+  };
+
+  document.getElementById("status").textContent="✓ Cerita berhasil dibuat oleh Gemini AI. Silakan periksa hasilnya.";
+  document.getElementById("hasil").textContent=response.cerita;
+ };
+
+ const script=document.createElement("script");
+ script.src=BACKEND_URL+"?"+params.toString();
+ script.onerror=function(){
+  selesai();
+  document.getElementById("status").textContent="Tidak dapat menghubungi backend. Periksa URL dan deployment Apps Script.";
+ };
+ document.body.appendChild(script);
+ script.onload=function(){script.remove();};
 }
 
-function tampilkan(){
-const hasil=document.getElementById("hasil");
-hasil.innerHTML="";
-proyek.adegan.forEach(scene=>{
-const div=document.createElement("div");
-div.className="scene";
-const title=document.createElement("h3");
-title.textContent="ADEGAN "+scene.nomor+": "+scene.nama;
-const waktu=document.createElement("p");
-waktu.textContent="Waktu: "+scene.mulai_detik+" - "+scene.selesai_detik+" detik";
-const deskripsi=document.createElement("p");
-deskripsi.textContent=scene.deskripsi;
-const tokoh=document.createElement("p");
-tokoh.textContent="Karakter: "+scene.karakter.join(", ");
-div.append(title,waktu,deskripsi,tokoh);
-hasil.appendChild(div);
-});
+function selesai(){
+ sedangMemuat=false;
+ const tombol=document.getElementById("tombolBuat");
+ tombol.disabled=false;
+ tombol.textContent="✨ GENERATE CERITA DENGAN GEMINI AI";
 }
 
 function setujui(){
-if(!proyek){alert("Buat storyboard terlebih dahulu.");return;}
-proyek.status="Disetujui untuk tahap produksi";
-document.getElementById("status").textContent="✓ KONSEP DISETUJUI — Siap untuk tahap produksi.";
+ if(!proyek){
+  alert("Buat cerita terlebih dahulu.");
+  return;
+ }
+ proyek.status="Disetujui untuk tahap produksi";
+ document.getElementById("status").textContent="✓ KONSEP DISETUJUI — Siap untuk tahap produksi.";
 }
 
 function downloadJSON(){
-if(!proyek){alert("Buat storyboard terlebih dahulu.");return;}
-const data=new Blob([JSON.stringify(proyek,null,2)],{type:"application/json"});
-const url=URL.createObjectURL(data);
-const link=document.createElement("a");
-link.href=url;
-link.download="proyek-animasi.json";
-link.click();
-URL.revokeObjectURL(url);
+ if(!proyek){
+  alert("Buat cerita terlebih dahulu.");
+  return;
+ }
+ const data=new Blob([JSON.stringify(proyek,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(data);
+ const link=document.createElement("a");
+ link.href=url;
+ link.download="proyek-animasi.json";
+ link.click();
+ URL.revokeObjectURL(url);
 }
 </script>
 </body>
