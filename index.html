@@ -17,10 +17,11 @@ label{display:block;margin:14px 0 7px}
 input,select,textarea{width:100%;padding:12px;border-radius:8px;border:1px solid #405572;background:#101c2d;color:white;font-size:15px}
 textarea{min-height:75px}
 button{padding:13px 18px;border:0;border-radius:8px;background:#20c982;color:#071b16;font-weight:bold;cursor:pointer;margin-top:16px;width:100%}
-button:disabled{opacity:.5}
+button:disabled{opacity:.5;cursor:not-allowed}
 .secondary{background:#ffd34e}
-#status{color:#aeeacb;white-space:pre-wrap}
-#hasil{white-space:pre-wrap;line-height:1.7;overflow-wrap:anywhere}
+.blue{background:#65a9ff;color:#071b2d}
+#status,#statusStoryboard{color:#aeeacb;white-space:pre-wrap}
+.hasil{white-space:pre-wrap;line-height:1.7;overflow-wrap:anywhere}
 footer{text-align:center;padding:25px;color:#9aabc2}
 </style>
 </head>
@@ -31,6 +32,7 @@ footer{text-align:center;padding:25px;color:#9aabc2}
 </header>
 
 <div class="container">
+
 <div class="panel">
 <h2>📋 Informasi Episode</h2>
 
@@ -65,42 +67,84 @@ footer{text-align:center;padding:25px;color:#9aabc2}
 <div class="panel">
 <h2>🎞️ Hasil Cerita AI</h2>
 <p id="status">Backend siap digunakan. Isi informasi episode lalu tekan Generate.</p>
-<div id="hasil"></div>
+<div id="hasil" class="hasil"></div>
+
+<button id="tombolStoryboard" class="blue" onclick="buatStoryboard()" disabled>
+🎬 GENERATE STORYBOARD 7 ADEGAN
+</button>
 
 <button class="secondary" onclick="setujui()">✓ SETUJUI KONSEP</button>
 <button onclick="downloadJSON()">⬇ DOWNLOAD PROYEK JSON</button>
 </div>
+
+<div class="panel">
+<h2>🎨 Storyboard Studio</h2>
+<p id="statusStoryboard">Storyboard belum dibuat.</p>
+<div id="hasilStoryboard" class="hasil"></div>
+<button id="tombolDownloadStoryboard" onclick="downloadStoryboard()" disabled>
+⬇ DOWNLOAD STORYBOARD TXT
+</button>
+</div>
+
 </div>
 
 <footer>
 KIDS ANIMATION STUDIO AI<br>
-Tahap 1 — AI Story dan Perencanaan Produksi
+Tahap 1 — AI Story dan Storyboard Production
 </footer>
 
 <script>
-// GANTI URL DI BAWAH INI DENGAN URL WEB APP /exec MILIKMU
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzeTQWOO2zjnWnNZFrplF1gDf8li-HBrw2UTLHO7Z-j4YFcigXOBb-LutUFhSdrLLokfw/exec";
 
 let proyek = null;
 let sedangMemuat = false;
+let sedangStoryboard = false;
+
+function ambilInput(){
+ return {
+  judul:document.getElementById("judul").value.trim(),
+  tema:document.getElementById("tema").value.trim(),
+  durasi:document.getElementById("durasi").value,
+  bahasa:document.getElementById("bahasa").value,
+  karakter:document.getElementById("karakter").value.trim(),
+  tujuan:document.getElementById("tujuan").value.trim()
+ };
+}
+
+function panggilBackend(params, callbackSelesai){
+ const query = new URLSearchParams(params);
+ const script = document.createElement("script");
+ const callbackName = "kidsAnimationCallback";
+
+ window[callbackName] = function(response){
+  selesaiScript();
+  callbackSelesai(response);
+ };
+
+ function selesaiScript(){
+  delete window[callbackName];
+  script.remove();
+ }
+
+ script.src = BACKEND_URL + "?" + query.toString();
+ script.onerror = function(){
+  selesaiScript();
+  callbackSelesai({
+   success:false,
+   message:"Tidak dapat menghubungi backend. Periksa URL dan deployment Apps Script."
+  });
+ };
+
+ document.body.appendChild(script);
+}
 
 function buatCerita(){
  if(sedangMemuat)return;
 
- const judul=document.getElementById("judul").value.trim();
- const tema=document.getElementById("tema").value.trim();
- const durasi=document.getElementById("durasi").value;
- const bahasa=document.getElementById("bahasa").value;
- const karakter=document.getElementById("karakter").value.trim();
- const tujuan=document.getElementById("tujuan").value.trim();
+ const data = ambilInput();
 
- if(!judul || !tema){
+ if(!data.judul || !data.tema){
   alert("Judul dan tema wajib diisi.");
-  return;
- }
-
- if(BACKEND_URL==="TEMPEL_URL_WEB_APP_EXEC_DI_SINI"){
-  alert("URL backend belum dipasang.");
   return;
  }
 
@@ -110,56 +154,86 @@ function buatCerita(){
  tombol.textContent="⏳ GEMINI SEDANG MEMBUAT CERITA...";
  document.getElementById("status").textContent="Menghubungi Gemini AI. Mohon tunggu...";
  document.getElementById("hasil").textContent="";
+ document.getElementById("hasilStoryboard").textContent="";
+ document.getElementById("statusStoryboard").textContent="Storyboard belum dibuat.";
+ document.getElementById("tombolStoryboard").disabled=true;
+ document.getElementById("tombolDownloadStoryboard").disabled=true;
 
- const params=new URLSearchParams({
+ panggilBackend({
   action:"generate",
-  judul:judul,
-  tema:tema,
-  durasi:durasi,
-  bahasa:bahasa,
-  karakter:karakter,
-  tujuan:tujuan,
+  ...data,
   callback:"kidsAnimationCallback"
- });
+ },function(response){
+  sedangMemuat=false;
+  tombol.disabled=false;
+  tombol.textContent="✨ GENERATE CERITA DENGAN GEMINI AI";
 
- window.kidsAnimationCallback=function(response){
-  selesai();
   if(!response || !response.success){
    document.getElementById("status").textContent="Gagal: "+(response && response.message ? response.message : "Respons backend tidak valid.");
    return;
   }
 
   proyek={
-   judul:judul,
-   tema:tema,
-   durasi_menit:Number(durasi),
-   bahasa:bahasa,
-   karakter:karakter.split(",").map(x=>x.trim()).filter(Boolean),
-   tujuan_edukasi:tujuan,
+   ...data,
+   durasi_menit:Number(data.durasi),
+   karakter:data.karakter.split(",").map(x=>x.trim()).filter(Boolean),
+   tujuan_edukasi:data.tujuan,
    tanggal:new Date().toISOString(),
    status:"Menunggu persetujuan",
-   cerita:response.cerita
+   cerita:response.cerita,
+   storyboard:null
   };
 
   document.getElementById("status").textContent="✓ Cerita berhasil dibuat oleh Gemini AI. Silakan periksa hasilnya.";
   document.getElementById("hasil").textContent=response.cerita;
- };
-
- const script=document.createElement("script");
- script.src=BACKEND_URL+"?"+params.toString();
- script.onerror=function(){
-  selesai();
-  document.getElementById("status").textContent="Tidak dapat menghubungi backend. Periksa URL dan deployment Apps Script.";
- };
- document.body.appendChild(script);
- script.onload=function(){script.remove();};
+  document.getElementById("tombolStoryboard").disabled=false;
+ });
 }
 
-function selesai(){
- sedangMemuat=false;
- const tombol=document.getElementById("tombolBuat");
- tombol.disabled=false;
- tombol.textContent="✨ GENERATE CERITA DENGAN GEMINI AI";
+function buatStoryboard(){
+ if(sedangStoryboard)return;
+
+ if(!proyek || !proyek.cerita){
+  alert("Buat cerita terlebih dahulu.");
+  return;
+ }
+
+ sedangStoryboard=true;
+ const tombol=document.getElementById("tombolStoryboard");
+ tombol.disabled=true;
+ tombol.textContent="⏳ GEMINI MEMBUAT STORYBOARD...";
+ document.getElementById("statusStoryboard").textContent="Mengubah cerita menjadi storyboard visual 7 adegan. Mohon tunggu...";
+ document.getElementById("hasilStoryboard").textContent="";
+
+ const params={
+  action:"storyboard",
+  judul:proyek.judul,
+  tema:proyek.tema,
+  durasi:proyek.durasi_menit,
+  bahasa:proyek.bahasa,
+  karakter:proyek.karakter.join(", "),
+  tujuan:proyek.tujuan_edukasi,
+  cerita:proyek.cerita,
+  callback:"kidsAnimationCallback"
+ };
+
+ panggilBackend(params,function(response){
+  sedangStoryboard=false;
+  tombol.disabled=false;
+  tombol.textContent="🎬 GENERATE STORYBOARD 7 ADEGAN";
+
+  if(!response || !response.success){
+   document.getElementById("statusStoryboard").textContent="Gagal: "+(response && response.message ? response.message : "Respons backend tidak valid.");
+   return;
+  }
+
+  proyek.storyboard=response.storyboard;
+  proyek.status="Storyboard berhasil dibuat";
+
+  document.getElementById("statusStoryboard").textContent="✓ Storyboard 7 adegan berhasil dibuat.";
+  document.getElementById("hasilStoryboard").textContent=response.storyboard;
+  document.getElementById("tombolDownloadStoryboard").disabled=false;
+ });
 }
 
 function setujui(){
@@ -181,6 +255,20 @@ function downloadJSON(){
  const link=document.createElement("a");
  link.href=url;
  link.download="proyek-animasi.json";
+ link.click();
+ URL.revokeObjectURL(url);
+}
+
+function downloadStoryboard(){
+ if(!proyek || !proyek.storyboard){
+  alert("Buat storyboard terlebih dahulu.");
+  return;
+ }
+ const data=new Blob([proyek.storyboard],{type:"text/plain;charset=utf-8"});
+ const url=URL.createObjectURL(data);
+ const link=document.createElement("a");
+ link.href=url;
+ link.download="storyboard-7-adegan.txt";
  link.click();
  URL.revokeObjectURL(url);
 }
